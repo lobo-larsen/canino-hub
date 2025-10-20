@@ -29,9 +29,9 @@ function WaveformPlayer({ audioUrl, fileName, onReady, onPlayStateChange, onTime
     const barGap = isSmallScreen ? 0.5 : 1
     const wavesurfer = WaveSurfer.create({
       container: waveformRef.current,
-      waveColor: '#4A90E2', // Steel Blue for unplayed
-      progressColor: '#FF00B3', // Magenta Shock - will be animated
-      cursorColor: '#00F0FF', // Electric Cyan cursor
+      waveColor: '#6B7280', // Gray for unplayed
+      progressColor: '#CD7F32', // Bronze for played
+      cursorColor: '#00F0FF', // Cyan cursor
       cursorWidth: 2,
       barWidth,
       barGap,

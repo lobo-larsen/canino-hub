@@ -1,5 +1,17 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
 
+/*
+ * CANINO HUB - DEFAULT THEME
+ * Classic Dark Theme with Bronze Accents
+ * 
+ * This is the main default theme for Canino Hub
+ * Theme Colors:
+ * - Background: Deep Black (#121212)
+ * - Surface: Dark Gray (#1E1E1E)
+ * - Accent: Bronze (#CD7F32)
+ * - Text: White/Gray scale
+ */
+
 * {
   margin: 0;
   padding: 0;
@@ -7,9 +19,9 @@
 }
 
 :root {
-  /* ULTRA MODERN CLEAN DESIGN SYSTEM */
+  /* DEFAULT THEME - Classic Dark with Bronze Accents */
   
-  /* Base Colors - Dark Mode */
+  /* Base Colors - Deep Black */
   --background: #121212;
   --surface: #1E1E1E;
   --surface-elevated: #2C2C2C;
@@ -20,7 +32,7 @@
   --text-tertiary: #808080;
   --text-inverse: #000000;
   
-  /* Accent - Bronze/Copper Theme (más apagado) */
+  /* Accent - Bronze/Copper Theme (Default) */
   --primary: #CD7F32; /* Bronze */
   --primary-hover: #B8860B; /* DarkGoldenRod */
   --primary-light: rgba(205, 127, 50, 0.1); /* Bronze transparent */
