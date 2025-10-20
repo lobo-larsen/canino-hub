@@ -385,7 +385,7 @@ const clearAudioCache = () => {
   const typeBadge = getRecordingTypeBadge(file.name)
   
   // Remove file extension from display name
-  const displayName = file.name.replace(/\.(webm|mp3|mp4|m4a|wav|ogg|aac)$/i, '')
+  const displayName = file.name.replace(/\.(webm|mp3|mp4|m4a|wav|ogg|aac|audio)$/i, '')
 
       return (
         <div className="drive-file-item" ref={itemRef}>
