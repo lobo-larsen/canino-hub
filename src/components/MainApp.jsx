@@ -1,4 +1,5 @@
 import { useAuth } from '../contexts/AuthContext'
+import { AudioProvider } from '../contexts/AudioContext'
 import LoginPage from './LoginPage'
 import Dashboard from './Dashboard'
 
@@ -23,7 +24,9 @@ function MainApp() {
   }
 
   return (
-    <Dashboard />
+    <AudioProvider>
+      <Dashboard />
+    </AudioProvider>
   )
 }
 

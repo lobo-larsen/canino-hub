@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { useAuth } from '../contexts/AuthContext'
+import { useAudio } from '../contexts/AudioContext'
 import { listRecordingsFromDrive, getDriveStreamUrl, deleteFromDrive, uploadRecordingToDrive, getNextTakeNumberFromDrive } from '../utils/googleDrive'
 import { getUserColor, getUserInitials } from '../utils/favorites'
 import { formatCommentDate } from '../utils/comments'
@@ -482,6 +483,7 @@ import './DriveBrowser.css'
 
 function DriveBrowser({ reloadKey }) {
   const { accessToken, user } = useAuth()
+  const { setGlobalNowPlaying, setGlobalPlayState } = useAudio()
   const [files, setFiles] = useState([])
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState(null)
@@ -524,8 +526,6 @@ function DriveBrowser({ reloadKey }) {
       console.warn('Drive cache write failed:', e)
     }
   }
-  const [nowPlaying, setNowPlaying] = useState(null) // { name, controls }
-  const [isGlobalPlaying, setIsGlobalPlaying] = useState(false)
 
   const loadFiles = async (token = null) => {
     const useToken = token || accessToken
@@ -921,15 +921,11 @@ function DriveBrowser({ reloadKey }) {
               onDelete={handleDelete}
               onUpdate={handleUpdate}
               onPlayerReady={(name, controls) => {
-                // Capture controls only for currently playing item
-                setNowPlaying(prev => (prev && prev.name === name) ? prev : { name, controls })
+                // Set global now playing
+                setGlobalNowPlaying(name, controls)
               }}
               onPlayStateChange={(name, playing) => {
-                setIsGlobalPlaying(playing)
-                if (!nowPlaying || nowPlaying.name !== name) {
-                  // Update track name on new play
-                  setNowPlaying(prev => prev ? { ...prev, name } : prev)
-                }
+                setGlobalPlayState(playing)
               }}
             />
           ))}
@@ -1044,17 +1040,6 @@ function DriveBrowser({ reloadKey }) {
           </div>
         </div>
       )}
-    {nowPlaying && (
-      <div className="mini-player">
-        <div className="mini-track" title={nowPlaying.name}>{nowPlaying.name}</div>
-        <div className="mini-actions">
-          <button className="mini-btn" onClick={() => nowPlaying.controls.playPause()}>
-            {isGlobalPlaying ? '⏸' : '▶️'}
-          </button>
-          <button className="mini-btn" onClick={() => { nowPlaying.controls.pause(); setNowPlaying(null) }}>✕</button>
-        </div>
-      </div>
-    )}
     </div>
   )
 }

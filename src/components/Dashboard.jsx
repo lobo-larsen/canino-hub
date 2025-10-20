@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { useAuth } from '../contexts/AuthContext'
+import { useAudio } from '../contexts/AudioContext'
 import { getTotalStats } from '../utils/indexedDB'
 import RecordingControls from './RecordingControls'
 import RecordingsList from './RecordingsList'
@@ -12,6 +13,7 @@ import './Dashboard.css'
 
 function Dashboard() {
   const { user } = useAuth()
+  const { nowPlaying, isGlobalPlaying, stopGlobalPlayback, toggleGlobalPlayback } = useAudio()
   const [stats, setStats] = useState({ count: 0, duration: 0, size: 0 })
   const [refreshTrigger, setRefreshTrigger] = useState(0)
   const [activeTab, setActiveTab] = useState('explore') // 'explore', 'record', 'planner'
@@ -194,6 +196,19 @@ function Dashboard() {
               onClose={handleSettingsClose} 
               onDataCleared={handleLocalRecordingsUpdate}
             />
+          </div>
+        </div>
+      )}
+
+      {/* Global Mini Player */}
+      {nowPlaying && (
+        <div className="mini-player">
+          <div className="mini-track" title={nowPlaying.name}>{nowPlaying.name}</div>
+          <div className="mini-actions">
+            <button className="mini-btn" onClick={toggleGlobalPlayback}>
+              {isGlobalPlaying ? '⏸' : '▶️'}
+            </button>
+            <button className="mini-btn" onClick={stopGlobalPlayback}>✕</button>
           </div>
         </div>
       )}
