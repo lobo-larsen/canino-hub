@@ -9,6 +9,11 @@ import './App.css'
 const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID || 'YOUR_GOOGLE_CLIENT_ID'
 
 function App() {
+  if (typeof window !== 'undefined') {
+    // Log once to verify the client ID present in the deployed bundle
+    // Safe to log the presence; this is not a secret
+    console.info('[OAuth] Using Google Client ID:', GOOGLE_CLIENT_ID)
+  }
   return (
     <GoogleOAuthProvider clientId={GOOGLE_CLIENT_ID}>
       <Router>
