@@ -1,0 +1,114 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+:root {
+  /* Night Sky - Fondo principal */
+  --background: #121212;
+  
+  /* Graphite Gray - Cards / paneles */
+  --surface: #1E1E1E;
+  
+  /* Steel Blue - Bordes, iconos secundarios */
+  --border-color: #4A90E2;
+  
+  /* Electric Cyan - Acentos, botones, highlights */
+  --primary-color: #00F0FF;
+  --primary-dark: #00B8CC;
+  
+  /* Magenta Shock - Alertas, grabar, estados activos */
+  --secondary-color: #FF00B3;
+  --accent-magenta: #FF00B3;
+  
+  /* Off-White - Tipografía principal */
+  --text-primary: #E5E5E5;
+  --text-secondary: #8A8A8A;
+  
+  /* Labels - Song badges */
+  --label-gradient-start: #00F0FF;
+  --label-gradient-end: #00B8CC;
+  --label-text: #000000;
+  
+  /* Waveforms - Audio visualization */
+  --waveform-unplayed: #4A90E2;
+  --waveform-played: #FF00B3;
+  
+  /* Shadows adapted for dark theme */
+  --shadow: 0 2px 8px 0 rgba(0, 0, 0, 0.6), 0 1px 4px 1px rgba(0, 0, 0, 0.4);
+  --shadow-lg: 0 4px 16px 0 rgba(0, 0, 0, 0.7), 0 8px 24px 4px rgba(0, 0, 0, 0.5);
+  
+  /* Glow effects for cyberpunk vibe */
+  --cyan-glow: 0 0 10px rgba(0, 240, 255, 0.5);
+  --magenta-glow: 0 0 10px rgba(255, 0, 179, 0.5);
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+    sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  background-color: var(--background);
+  color: var(--text-primary);
+  line-height: 1.6;
+}
+
+#root {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+button {
+  font-family: inherit;
+  cursor: pointer;
+  border: none;
+  outline: none;
+  transition: all 0.2s ease;
+}
+
+button:active {
+  transform: scale(0.98);
+}
+
+input {
+  font-family: inherit;
+}
+
+/* Animations */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.fade-in {
+  animation: fadeIn 0.3s ease;
+}
+
+/* Scrollbar styling for webkit browsers */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--border-color);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--text-secondary);
+}
+

@@ -1,0 +1,21 @@
+.drive-auth-button {
+  padding: 0.75rem 1.5rem;
+  background: linear-gradient(135deg, #4285f4 0%, #34a853 100%);
+  color: white;
+  border-radius: 12px;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  box-shadow: var(--shadow);
+  transition: all 0.2s ease;
+}
+
+.drive-auth-button:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-lg);
+}
+
+.drive-auth-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
