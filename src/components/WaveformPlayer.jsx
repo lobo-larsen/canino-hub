@@ -115,8 +115,25 @@ function WaveformPlayer({ audioUrl, fileName, onReady, onPlayStateChange, onTime
     if (nowPlaying && nowPlaying.name !== fileName && wavesurferRef.current && wavesurferRef.current.isPlaying()) {
       console.log('🛑 Stopping', fileName, 'because', nowPlaying.name, 'is now playing')
       wavesurferRef.current.pause()
+      setIsPlaying(false)
     }
   }, [nowPlaying, fileName])
+
+  // Sync local playing state with global state
+  useEffect(() => {
+    if (nowPlaying && nowPlaying.name === fileName) {
+      // This is the currently playing track, sync the state
+      if (wavesurferRef.current) {
+        const isActuallyPlaying = wavesurferRef.current.isPlaying()
+        if (isActuallyPlaying !== isPlaying) {
+          setIsPlaying(isActuallyPlaying)
+        }
+      }
+    } else if (isPlaying) {
+      // This track is not the current one, make sure it's paused
+      setIsPlaying(false)
+    }
+  }, [nowPlaying, fileName, isPlaying])
 
   const handlePlayPause = () => {
     if (wavesurferRef.current) {
