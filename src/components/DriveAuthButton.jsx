@@ -7,6 +7,9 @@ function DriveAuthButton({ onSuccess, children }) {
   const { updateAccessToken } = useAuth()
   const [isLoading, setIsLoading] = useState(false)
 
+  // Compute an explicit redirect URI that works locally and on GitHub Pages
+  const redirectUri = `${window.location.origin}${(import.meta.env.BASE_URL || '/').replace(/\/$/, '')}`
+
   const login = useGoogleLogin({
     onSuccess: (tokenResponse) => {
       updateAccessToken(tokenResponse.access_token)
@@ -21,7 +24,8 @@ function DriveAuthButton({ onSuccess, children }) {
       setIsLoading(false)
     },
     scope: 'https://www.googleapis.com/auth/drive https://www.googleapis.com/auth/calendar',
-    flow: 'implicit'
+    flow: 'implicit',
+    redirect_uri: redirectUri
   })
 
   const handleClick = () => {
