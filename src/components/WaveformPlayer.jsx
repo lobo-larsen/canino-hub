@@ -69,23 +69,28 @@ function WaveformPlayer({ audioUrl, fileName, onReady, onPlayStateChange, onTime
 
     wavesurfer.on('play', () => {
       setIsPlaying(true)
-      // Notify global audio context that this player is now playing
-      setGlobalNowPlaying(fileName, {
-        play: () => wavesurfer.play(),
-        pause: () => wavesurfer.pause(),
-        playPause: () => wavesurfer.playPause(),
-        isPlaying: () => wavesurfer.isPlaying(),
-        getTimes: () => ({ current: wavesurfer.getCurrentTime(), total: wavesurfer.getDuration() }),
-        seekTo: (fraction) => {
-          if (typeof fraction === 'number') wavesurfer.seekTo(Math.min(1, Math.max(0, fraction)))
-        }
-      })
-      setGlobalPlayState(true)
+      // Only set as global if this is the current track or no track is playing
+      if (!nowPlaying || nowPlaying.name === fileName) {
+        setGlobalNowPlaying(fileName, {
+          play: () => wavesurfer.play(),
+          pause: () => wavesurfer.pause(),
+          playPause: () => wavesurfer.playPause(),
+          isPlaying: () => wavesurfer.isPlaying(),
+          getTimes: () => ({ current: wavesurfer.getCurrentTime(), total: wavesurfer.getDuration() }),
+          seekTo: (fraction) => {
+            if (typeof fraction === 'number') wavesurfer.seekTo(Math.min(1, Math.max(0, fraction)))
+          }
+        })
+        setGlobalPlayState(true)
+      }
       if (typeof onPlayStateChange === 'function') onPlayStateChange(true)
     })
     wavesurfer.on('pause', () => {
       setIsPlaying(false)
-      setGlobalPlayState(false)
+      // Only update global state if this is the current track
+      if (nowPlaying && nowPlaying.name === fileName) {
+        setGlobalPlayState(false)
+      }
       if (typeof onPlayStateChange === 'function') onPlayStateChange(false)
     })
     

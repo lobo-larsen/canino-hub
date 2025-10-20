@@ -16,12 +16,12 @@ export const AudioProvider = ({ children }) => {
   const [currentAudioInstance, setCurrentAudioInstance] = useState(null)
 
   const setGlobalNowPlaying = (name, controls) => {
+    console.log('🎵 Setting global now playing:', name)
+    
     // Stop any currently playing audio before starting new one
-    if (currentAudioInstance && currentAudioInstance.controls) {
+    if (currentAudioInstance && currentAudioInstance.controls && currentAudioInstance.name !== name) {
       console.log('🛑 Stopping previous audio:', currentAudioInstance.name)
       currentAudioInstance.controls.pause()
-      // Reset global state when stopping previous audio
-      setIsGlobalPlaying(false)
     }
     
     // Set new audio as current
@@ -35,6 +35,7 @@ export const AudioProvider = ({ children }) => {
   }
 
   const stopGlobalPlayback = () => {
+    console.log('🛑 Stopping global playback')
     if (nowPlaying?.controls) {
       nowPlaying.controls.pause()
     }
