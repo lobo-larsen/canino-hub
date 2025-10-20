@@ -1,8 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
 import WaveSurfer from 'wavesurfer.js'
+import { useAudio } from '../contexts/AudioContext'
 import './WaveformPlayer.css'
 
 function WaveformPlayer({ audioUrl, fileName, onReady, onPlayStateChange, onTime }) {
+  const { setGlobalNowPlaying, setGlobalPlayState, nowPlaying } = useAudio()
   const waveformRef = useRef(null)
   const wavesurferRef = useRef(null)
   const [isPlaying, setIsPlaying] = useState(false)
@@ -67,10 +69,23 @@ function WaveformPlayer({ audioUrl, fileName, onReady, onPlayStateChange, onTime
 
     wavesurfer.on('play', () => {
       setIsPlaying(true)
+      // Notify global audio context that this player is now playing
+      setGlobalNowPlaying(fileName, {
+        play: () => wavesurfer.play(),
+        pause: () => wavesurfer.pause(),
+        playPause: () => wavesurfer.playPause(),
+        isPlaying: () => wavesurfer.isPlaying(),
+        getTimes: () => ({ current: wavesurfer.getCurrentTime(), total: wavesurfer.getDuration() }),
+        seekTo: (fraction) => {
+          if (typeof fraction === 'number') wavesurfer.seekTo(Math.min(1, Math.max(0, fraction)))
+        }
+      })
+      setGlobalPlayState(true)
       if (typeof onPlayStateChange === 'function') onPlayStateChange(true)
     })
     wavesurfer.on('pause', () => {
       setIsPlaying(false)
+      setGlobalPlayState(false)
       if (typeof onPlayStateChange === 'function') onPlayStateChange(false)
     })
     
@@ -94,6 +109,14 @@ function WaveformPlayer({ audioUrl, fileName, onReady, onPlayStateChange, onTime
       }
     }
   }, [audioUrl, isSmallScreen])
+
+  // Stop this player if another audio starts playing
+  useEffect(() => {
+    if (nowPlaying && nowPlaying.name !== fileName && wavesurferRef.current && wavesurferRef.current.isPlaying()) {
+      console.log('🛑 Stopping', fileName, 'because', nowPlaying.name, 'is now playing')
+      wavesurferRef.current.pause()
+    }
+  }, [nowPlaying, fileName])
 
   const handlePlayPause = () => {
     if (wavesurferRef.current) {
