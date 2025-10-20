@@ -14,19 +14,35 @@ export const AudioProvider = ({ children }) => {
   const [nowPlaying, setNowPlaying] = useState(null)
   const [isGlobalPlaying, setIsGlobalPlaying] = useState(false)
   const [currentAudioInstance, setCurrentAudioInstance] = useState(null)
+  const [allAudioInstances, setAllAudioInstances] = useState(new Map())
 
   const setGlobalNowPlaying = (name, controls) => {
     console.log('🎵 Setting global now playing:', name)
     
-    // Stop any currently playing audio before starting new one
-    if (currentAudioInstance && currentAudioInstance.controls && currentAudioInstance.name !== name) {
-      console.log('🛑 Stopping previous audio:', currentAudioInstance.name)
-      currentAudioInstance.controls.pause()
-    }
+    // Stop ALL other audio instances
+    allAudioInstances.forEach((instance, instanceName) => {
+      if (instanceName !== name && instance.controls) {
+        console.log('🛑 Stopping audio:', instanceName)
+        try {
+          if (instance.controls.isPlaying && instance.controls.isPlaying()) {
+            instance.controls.pause()
+          }
+        } catch (error) {
+          console.warn('Error stopping audio:', instanceName, error)
+        }
+      }
+    })
     
     // Set new audio as current
     setNowPlaying({ name, controls })
     setCurrentAudioInstance({ name, controls })
+    
+    // Update the instances map
+    setAllAudioInstances(prev => {
+      const newMap = new Map(prev)
+      newMap.set(name, { name, controls })
+      return newMap
+    })
   }
 
   const setGlobalPlayState = (playing) => {
@@ -51,6 +67,22 @@ export const AudioProvider = ({ children }) => {
     }
   }
 
+  const registerAudioInstance = (name, controls) => {
+    setAllAudioInstances(prev => {
+      const newMap = new Map(prev)
+      newMap.set(name, { name, controls })
+      return newMap
+    })
+  }
+
+  const unregisterAudioInstance = (name) => {
+    setAllAudioInstances(prev => {
+      const newMap = new Map(prev)
+      newMap.delete(name)
+      return newMap
+    })
+  }
+
   return (
     <AudioContext.Provider value={{
       nowPlaying,
@@ -58,7 +90,9 @@ export const AudioProvider = ({ children }) => {
       setGlobalNowPlaying,
       setGlobalPlayState,
       stopGlobalPlayback,
-      toggleGlobalPlayback
+      toggleGlobalPlayback,
+      registerAudioInstance,
+      unregisterAudioInstance
     }}>
       {children}
     </AudioContext.Provider>

@@ -200,18 +200,6 @@ function Dashboard() {
         </div>
       )}
 
-      {/* Global Mini Player */}
-      {nowPlaying && (
-        <div className="mini-player">
-          <div className="mini-track" title={nowPlaying.name}>{nowPlaying.name}</div>
-          <div className="mini-actions">
-            <button className="mini-btn" onClick={toggleGlobalPlayback}>
-              {isGlobalPlaying ? '⏸' : '▶️'}
-            </button>
-            <button className="mini-btn" onClick={stopGlobalPlayback}>✕</button>
-          </div>
-        </div>
-      )}
     </div>
   )
 }

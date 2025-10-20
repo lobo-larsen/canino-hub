@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import { useAuth } from '../contexts/AuthContext'
 import { useAudio } from '../contexts/AudioContext'
 import { listRecordingsFromDrive, getDriveStreamUrl, deleteFromDrive, uploadRecordingToDrive, getNextTakeNumberFromDrive } from '../utils/googleDrive'
@@ -16,11 +16,121 @@ import DriveAuthButton from './DriveAuthButton'
 import WaveformPlayer from './WaveformPlayer'
 import './DriveBrowser.css'
 
-    function DriveFileItem({ file, accessToken, onDelete, onUpdate, onPlayerReady, onPlayStateChange }) {
+// Global audio cache to persist loaded audio URLs across component remounts
+const audioCache = new Map()
+const audioStateCache = new Map() // Cache for audio loading states
+const audioPlayStateCache = new Map() // Cache for play/pause states
+const audioControlsCache = new Map() // Cache for audio controls (play/pause functions)
+const audioPositionCache = new Map() // Cache for audio positions (current time)
+
+// Global audio state management
+let globalCurrentlyPlaying = null // Track which audio is currently playing globally
+
+// Function to stop all other audio when one starts playing
+const stopAllOtherAudio = (currentFileId) => {
+  console.log('🛑 Stopping all other audio, current:', currentFileId, 'global:', globalCurrentlyPlaying)
+  
+  // Stop ALL audio controls, not just the currently playing one
+  for (const [fileId, controls] of audioControlsCache.entries()) {
+    if (fileId !== currentFileId && controls) {
+      try {
+        console.log('🛑 Stopping audio:', fileId)
+        // Save current position before stopping
+        if (controls.getCurrentTime) {
+          const currentTime = controls.getCurrentTime()
+          audioPositionCache.set(fileId, { position: currentTime })
+        }
+        // Force stop the audio
+        if (controls.pause) {
+          controls.pause()
+        }
+        // Update the play state cache
+        audioPlayStateCache.set(fileId, { isPlaying: false })
+      } catch (error) {
+        console.warn('Error stopping audio:', fileId, error)
+      }
+    }
+  }
+  
+  // Update global state
+  globalCurrentlyPlaying = currentFileId
+  console.log('✅ Global state updated to:', globalCurrentlyPlaying)
+}
+
+// Function to save audio position periodically
+const saveAudioPosition = (fileId, controls) => {
+  if (controls && controls.getCurrentTime) {
+    try {
+      const currentTime = controls.getCurrentTime()
+      audioPositionCache.set(fileId, { position: currentTime })
+    } catch (error) {
+      console.warn('Error saving audio position:', error)
+    }
+  }
+}
+
+// Function to check if an audio is currently playing globally
+const isAudioCurrentlyPlaying = (fileId) => {
+  return globalCurrentlyPlaying === fileId
+}
+
+// Function to stop all audio globally
+const stopAllAudioGlobally = () => {
+  console.log('🛑 Stopping all audio globally')
+  
+  // Stop all cached audio controls
+  for (const [fileId, controls] of audioControlsCache.entries()) {
+    if (controls) {
+      try {
+        // Save current position before stopping
+        if (controls.getCurrentTime) {
+          const currentTime = controls.getCurrentTime()
+          audioPositionCache.set(fileId, { position: currentTime })
+        }
+        if (controls.pause) {
+          controls.pause()
+        }
+        // Update the play state cache
+        audioPlayStateCache.set(fileId, { isPlaying: false })
+      } catch (error) {
+        console.warn('Error stopping audio globally:', fileId, error)
+      }
+    }
+  }
+  
+  // Also stop all HTML audio elements on the page
+  const audioElements = document.querySelectorAll('audio')
+  audioElements.forEach(audio => {
+    try {
+      audio.pause()
+      audio.currentTime = 0
+    } catch (error) {
+      console.warn('Error stopping HTML audio element:', error)
+    }
+  })
+  
+  globalCurrentlyPlaying = null
+  console.log('✅ All audio stopped globally')
+}
+
+// Cleanup function to clear cache when needed
+const clearAudioCache = () => {
+  // Revoke all cached URLs
+  for (const url of audioCache.values()) {
+    URL.revokeObjectURL(url)
+  }
+  audioCache.clear()
+  audioStateCache.clear()
+  audioPlayStateCache.clear()
+  audioControlsCache.clear()
+  audioPositionCache.clear()
+}
+
+    const DriveFileItem = React.memo(function DriveFileItem({ file, accessToken, onDelete, onUpdate, onPlayerReady, onPlayStateChange }) {
       const { user } = useAuth()
-      const [isPlaying, setIsPlaying] = useState(false)
-      const [audioUrl, setAudioUrl] = useState(null)
-      const [isLoadingAudio, setIsLoadingAudio] = useState(false)
+      const [isPlaying, setIsPlaying] = useState(() => isAudioCurrentlyPlaying(file.id))
+      const [audioUrl, setAudioUrl] = useState(() => audioCache.get(file.id) || null)
+      const [isLoadingAudio, setIsLoadingAudio] = useState(() => audioStateCache.get(file.id)?.isLoading || false)
       const itemRef = useRef(null)
       const [isVisible, setIsVisible] = useState(false)
   const [showComments, setShowComments] = useState(false)
@@ -29,55 +139,74 @@ import './DriveBrowser.css'
   const [favorites, setFavorites] = useState([])
   const [comments, setComments] = useState([])
   const [showMenu, setShowMenu] = useState(false)
+  
 
       useEffect(() => {
-    console.log('🔍 File details:', {
-      name: file?.name,
-      mimeType: file?.mimeType,
-      id: file?.id,
-      hasAccessToken: !!accessToken
-    })
-    
-    // Check if it's an audio file (more flexible check)
+    // Check if it's an audio file
     const isAudioFile = file?.mimeType?.startsWith('audio/') || 
                        file?.name?.match(/\.(mp3|wav|webm|m4a|ogg|aac|flac)$/i)
     
-        if (file && accessToken && isAudioFile && isVisible) {
-      console.log('🎵 Detected audio file, loading...')
+    // Load audio if it's an audio file and not in cache
+    if (file && accessToken && isAudioFile && !audioCache.has(file.id) && !isLoadingAudio) {
       loadAudioBlob()
-        } else if (file && accessToken && !isVisible) {
-          console.log('👀 Deferred audio load until visible')
-        } else if (file && accessToken) {
-      console.log('⚠️ Not an audio file or missing access token')
     }
     
     // Load metadata
     if (file && accessToken) {
       loadMetadata()
     }
-      }, [file, accessToken, isVisible])
+      }, [file, accessToken])
 
-      // Observe visibility for lazy loading
+      // Set as visible immediately since we're loading audio right away
       useEffect(() => {
-        const el = itemRef.current
-        if (!el) return
-        if (typeof window === 'undefined' || typeof window.IntersectionObserver !== 'function') {
-          // Fallback: mark as visible to avoid blocking loads
-          setIsVisible(true)
-          return
-        }
-        const observer = new IntersectionObserver(
-          ([entry]) => {
-            if (entry.isIntersecting) {
-              setIsVisible(true)
-              observer.disconnect()
-            }
-          },
-          { root: null, rootMargin: '200px', threshold: 0.01 }
-        )
-        observer.observe(el)
-        return () => observer.disconnect()
+        setIsVisible(true)
       }, [])
+
+      // Restore audio URL from cache when component mounts
+      useEffect(() => {
+        if (audioCache.has(file.id) && !audioUrl) {
+          setAudioUrl(audioCache.get(file.id))
+        }
+      }, [file.id, audioUrl])
+
+      // Cache play state whenever it changes
+      useEffect(() => {
+        audioPlayStateCache.set(file.id, { isPlaying })
+      }, [file.id, isPlaying])
+
+      // Sync with global play state
+      useEffect(() => {
+        const isGloballyPlaying = isAudioCurrentlyPlaying(file.id)
+        if (isGloballyPlaying !== isPlaying) {
+          setIsPlaying(isGloballyPlaying)
+        }
+      }, [file.id, isPlaying])
+
+      // Update global state when component state changes
+      useEffect(() => {
+        if (isPlaying) {
+          globalCurrentlyPlaying = file.id
+        } else if (globalCurrentlyPlaying === file.id) {
+          globalCurrentlyPlaying = null
+        }
+      }, [isPlaying, file.id])
+
+      // Save audio position periodically when playing
+      useEffect(() => {
+        let intervalId
+        if (isPlaying && audioControlsCache.has(file.id)) {
+          const controls = audioControlsCache.get(file.id)
+          intervalId = setInterval(() => {
+            saveAudioPosition(file.id, controls)
+          }, 1000) // Save position every second
+        }
+        
+        return () => {
+          if (intervalId) {
+            clearInterval(intervalId)
+          }
+        }
+      }, [isPlaying, file.id])
   
   // Close menu when clicking outside
   useEffect(() => {
@@ -107,85 +236,43 @@ import './DriveBrowser.css'
   }
 
   const loadAudioBlob = async () => {
+    if (isLoadingAudio || audioUrl || audioCache.has(file.id)) return // Prevent multiple loads
+    
     setIsLoadingAudio(true)
+    // Cache loading state
+    audioStateCache.set(file.id, { isLoading: true })
+    
     try {
-      console.log('🎵 Loading audio for file:', file.name, 'ID:', file.id)
-      
-      // Try multiple methods to get the audio
-      let audioUrl = null
-      
-      // Method 1: Try direct media link
-      try {
-        const response = await fetch(
-          `https://www.googleapis.com/drive/v3/files/${file.id}?alt=media`,
-          {
-            headers: {
-              'Authorization': `Bearer ${accessToken}`
-            }
+      const response = await fetch(
+        `https://www.googleapis.com/drive/v3/files/${file.id}?alt=media`,
+        {
+          headers: {
+            'Authorization': `Bearer ${accessToken}`
           }
-        )
+        }
+      )
+      
+      if (response.ok) {
+        const blob = await response.blob()
         
-        if (response.ok) {
-          const blob = await response.blob()
-          audioUrl = URL.createObjectURL(blob)
-          console.log('✅ Audio loaded via Drive API')
+        if (blob.size > 0) {
+          const url = URL.createObjectURL(blob)
+          // Cache the audio URL
+          audioCache.set(file.id, url)
+          setAudioUrl(url)
+          // Update cache state
+          audioStateCache.set(file.id, { isLoading: false, loaded: true })
         } else {
-          console.warn('Drive API failed:', response.status)
+          console.error('Audio blob is empty for:', file.name)
+          audioStateCache.set(file.id, { isLoading: false, loaded: false })
         }
-      } catch (error) {
-        console.warn('Drive API error:', error)
-      }
-      
-      // Method 2: Try webContentLink if available
-      if (!audioUrl && file.webContentLink) {
-        try {
-          const response = await fetch(file.webContentLink)
-          if (response.ok) {
-            const blob = await response.blob()
-            audioUrl = URL.createObjectURL(blob)
-            console.log('✅ Audio loaded via webContentLink')
-          }
-        } catch (error) {
-          console.warn('webContentLink error:', error)
-        }
-      }
-      
-      // Method 3: Try webViewLink as fallback
-      if (!audioUrl && file.webViewLink) {
-        try {
-          // For webViewLink, we need to extract the file ID and try again
-          const fileIdMatch = file.webViewLink.match(/\/file\/d\/([a-zA-Z0-9-_]+)/)
-          if (fileIdMatch) {
-            const fileId = fileIdMatch[1]
-            const response = await fetch(
-              `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`,
-              {
-                headers: {
-                  'Authorization': `Bearer ${accessToken}`
-                }
-              }
-            )
-            if (response.ok) {
-              const blob = await response.blob()
-              audioUrl = URL.createObjectURL(blob)
-              console.log('✅ Audio loaded via webViewLink')
-            }
-          }
-        } catch (error) {
-          console.warn('webViewLink error:', error)
-        }
-      }
-      
-      if (audioUrl) {
-        setAudioUrl(audioUrl)
-        console.log('🎵 Audio URL created successfully')
       } else {
-        console.error('❌ Failed to load audio from any method')
-        setAudioUrl(null)
+        console.error('Failed to fetch audio:', response.status)
+        audioStateCache.set(file.id, { isLoading: false, loaded: false })
       }
     } catch (error) {
-      console.error('❌ Error loading audio:', error)
-      setAudioUrl(null)
+      console.error('Error loading audio:', error)
+      audioStateCache.set(file.id, { isLoading: false, loaded: false })
     } finally {
       setIsLoadingAudio(false)
     }
@@ -195,10 +282,13 @@ import './DriveBrowser.css'
   useEffect(() => {
     return () => {
       if (audioUrl) {
-        URL.revokeObjectURL(audioUrl)
+        // Don't revoke if it's cached (other components might be using it)
+        if (!audioCache.has(file.id)) {
+          URL.revokeObjectURL(audioUrl)
+        }
       }
     }
-  }, [audioUrl])
+  }, [audioUrl, file.id])
 
   const formatSize = (bytes) => {
     if (!bytes) return 'Unknown size'
@@ -244,7 +334,11 @@ import './DriveBrowser.css'
     try {
       const newFavorites = await toggleDriveFavorite(accessToken, file.id, user)
       setFavorites(newFavorites)
+      
+      // Update the parent component's file data
       if (onUpdate) onUpdate()
+      
+      console.log('✅ Favorite toggled successfully')
     } catch (error) {
       console.error('Error toggling favorite:', error)
       alert('Failed to update favorite. Please try again.')
@@ -295,133 +389,125 @@ import './DriveBrowser.css'
 
       return (
         <div className="drive-file-item" ref={itemRef}>
-      <div className="file-info">
-        <h4 className="file-name">{displayName}</h4>
-        <div className="file-meta">
-          {songName && (
-            <>
-              <span className="song-badge-drive">
-                🎵 {songName}
-              </span>
-              <span>•</span>
-            </>
-          )}
-          {typeBadge && (
-            <>
-              <span className={`type-badge ${typeBadge.className}`}>
-                {typeBadge.icon} {typeBadge.label}
-              </span>
-              <span>•</span>
-            </>
-          )}
-          <span>{formatSize(file.size)}</span>
-          <span>•</span>
-          <span>{formatDate(file.modifiedTime)}</span>
-        </div>
-      </div>
-
-          <div className="audio-player">
-            {!isVisible ? (
-              <div className="waveform-skeleton" aria-hidden="true" />
-            ) : isLoadingAudio ? (
-              <div className="audio-loading">⏳ Loading audio...</div>
-            ) : audioUrl ? (
-              <WaveformPlayer 
-                audioUrl={audioUrl} 
-                fileName={file.name}
-                onReady={(controls) => onPlayerReady && onPlayerReady(file.name, controls)}
-                onPlayStateChange={(playing) => onPlayStateChange && onPlayStateChange(file.name, playing)}
-              />
-            ) : (
-              <div className="audio-load-failed">
-                <div className="load-error-text">
-                  🎵 Audio not loaded
-                  <br />
-                  <small>File: {file.name}</small>
-                  <br />
-                  <small>Type: {file.mimeType || 'unknown'}</small>
+          {/* SINGLE COMPACT LAYOUT - Title, Actions, and Player in one box */}
+          <div className="compact-layout">
+            {/* Top row: Title + Actions */}
+            <div className="title-actions-row">
+              <div className="title-section">
+                <h4 className="file-name-compact">{displayName}</h4>
+                <div className="file-meta-compact">
+                  {songName && (
+                    <>
+                      <span className="song-badge-inline">🎵 {songName}</span>
+                      <span>•</span>
+                    </>
+                  )}
+                  {typeBadge && (
+                    <>
+                      <span className={`type-badge-inline ${typeBadge.className}`}>
+                        {typeBadge.icon} {typeBadge.label}
+                      </span>
+                      <span>•</span>
+                    </>
+                  )}
+                  <span>{formatSize(file.size)}</span>
+                  <span>•</span>
+                  <span>{formatDate(file.modifiedTime)}</span>
                 </div>
-                <button onClick={loadAudioBlob} className="load-audio-btn">
-                  ▶️ Load Audio
+              </div>
+              
+              {/* Actions on the same line */}
+              <div className="inline-actions">
+                <button
+                  onClick={handleToggleFavorite}
+                  className={`inline-action-btn ${isFavorited ? 'favorited' : ''}`}
+                  title="Favorite"
+                  style={isFavorited ? { color: getUserColor(user?.email) } : {}}
+                >
+                  {isFavorited ? '★' : '☆'}
+                </button>
+                <button
+                  onClick={() => setShowComments(!showComments)}
+                  className="inline-action-btn"
+                  title="Comments"
+                >
+                  💬
+                  {comments.length > 0 && <span className="action-count-inline">{comments.length}</span>}
+                </button>
+                <button
+                  onClick={() => setShowMenu(!showMenu)}
+                  className="inline-action-btn"
+                  title="More"
+                >
+                  ⋮
                 </button>
               </div>
-            )}
+            </div>
+
+            {/* Audio Player */}
+            <div className="audio-player-compact">
+              {isLoadingAudio ? (
+                <div className="audio-loading">
+                  <div className="loading-spinner">⏳</div>
+                  <span>Loading {file.name}...</span>
+                </div>
+              ) : audioUrl ? (
+                <WaveformPlayer 
+                  audioUrl={audioUrl} 
+                  fileName={file.name}
+                  onReady={(controls) => onPlayerReady && onPlayerReady(file.name, controls)}
+                  onPlayStateChange={(name, playing) => onPlayStateChange && onPlayStateChange(name, playing)}
+                />
+              ) : (
+                <div className="audio-load-failed">
+                  <div className="load-error-text">
+                    🎵 Audio not loaded
+                    <br />
+                    <small>File: {file.name}</small>
+                    <br />
+                    <small>Type: {file.mimeType || 'unknown'}</small>
+                  </div>
+                  <button onClick={() => loadAudioBlob()} className="load-audio-btn">
+                    ▶️ Load Audio
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
 
-      <div className="recording-actions-row">
-        <div className="left-actions">
-          {/* Compact Favorites */}
-          <div className="compact-action-group">
-            <button
-              onClick={handleToggleFavorite}
-              className={`compact-action-btn ${isFavorited ? 'favorited' : ''}`}
-              title="Favorite"
-              style={isFavorited ? { color: getUserColor(user?.email) } : {}}
-            >
-              {isFavorited ? '★' : '☆'}
-            </button>
-            {favorites.length > 0 && (
-              <span className="action-count">{favorites.length}</span>
-            )}
-          </div>
-          
-          {/* Compact Comments */}
-          <div className="compact-action-group">
-            <button
-              onClick={() => setShowComments(!showComments)}
-              className="compact-action-btn"
-              title="Comments"
-            >
-              💬
-            </button>
-            {comments.length > 0 && (
-              <span className="action-count">{comments.length}</span>
-            )}
-          </div>
-        </div>
-
-            {/* Three-dot menu */}
-            <div className="menu-container">
-          <button
-            onClick={() => setShowMenu(!showMenu)}
-            className="menu-btn"
-            title="More actions"
-          >
-            ⋮
-          </button>
-          
-              {showMenu && (
-                <>
+          {/* Hidden menu container for dropdown */}
+          <div className="menu-container">
+            {showMenu && (
+              <>
                 <div className="dropdown-menu">
-              <a
-                href={file.webViewLink}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="menu-item"
-                onClick={() => setShowMenu(false)}
-              >
-                <span>📂</span> View in Drive
-              </a>
-              <button
-                onClick={() => { handleDownload(); setShowMenu(false); }}
-                className="menu-item"
-              >
-                <span>💾</span> Download
-              </button>
-              <button
-                onClick={() => { handleDelete(); setShowMenu(false); }}
-                className="menu-item delete"
-              >
-                <span>🗑️</span> Delete
-              </button>
+                  <a
+                    href={file.webViewLink}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="menu-item"
+                    onClick={() => setShowMenu(false)}
+                  >
+                    <span>📂</span> View in Drive
+                  </a>
+                  <button
+                    onClick={() => { handleDownload(); setShowMenu(false); }}
+                    className="menu-item"
+                  >
+                    <span>💾</span> Download
+                  </button>
+                  <button
+                    onClick={() => { handleDelete(); setShowMenu(false); }}
+                    className="menu-item delete"
+                  >
+                    <span>🗑️</span> Delete
+                  </button>
                 </div>
                 <div className="menu-overlay" onClick={() => setShowMenu(false)} />
-                </>
-              )}
-        </div>
-      </div>
+              </>
+            )}
+          </div>
 
-      {showComments && (
+          {showComments && (
         <div className="comments-section">
           {comments.length > 0 ? (
             <div className="comments-list-compact">
@@ -479,7 +565,7 @@ import './DriveBrowser.css'
       )}
     </div>
   )
-}
+})
 
 function DriveBrowser({ reloadKey }) {
   const { accessToken, user } = useAuth()
@@ -488,10 +574,12 @@ function DriveBrowser({ reloadKey }) {
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState(null)
   const [searchQuery, setSearchQuery] = useState('')
-  const [selectedSong, setSelectedSong] = useState('all')
-  const [selectedDate, setSelectedDate] = useState('all')
-  const [selectedType, setSelectedType] = useState('all')
+  const [selectedSongs, setSelectedSongs] = useState([]) // Array of selected songs
+  const [selectedDates, setSelectedDates] = useState([]) // Array of selected dates
+  const [selectedTypes, setSelectedTypes] = useState([]) // Array of selected types
   const [showOnlyMyFavorites, setShowOnlyMyFavorites] = useState(false)
+  const [showSongDropdown, setShowSongDropdown] = useState(false)
+  const [showFilterModal, setShowFilterModal] = useState(false)
   const [showUpload, setShowUpload] = useState(false)
   const [selectedFile, setSelectedFile] = useState(null)
   const [customName, setCustomName] = useState('')
@@ -527,7 +615,7 @@ function DriveBrowser({ reloadKey }) {
     }
   }
 
-  const loadFiles = async (token = null) => {
+  const loadFiles = async (token = null, forceRefresh = false) => {
     const useToken = token || accessToken
     if (!useToken) {
       console.log('⚠️ No access token available')
@@ -538,7 +626,7 @@ function DriveBrowser({ reloadKey }) {
     setError(null)
     
     try {
-      console.log('📂 Loading Drive files...')
+      console.log('📂 Loading Drive files...', forceRefresh ? '(force refresh)' : '')
       const driveFiles = await listRecordingsFromDrive(useToken)
       
       // Load favorites metadata for each file
@@ -556,6 +644,7 @@ function DriveBrowser({ reloadKey }) {
       
       setFiles(filesWithFavorites)
       saveToCache(filesWithFavorites)
+      
       console.log('✅ Files loaded successfully')
     } catch (err) {
       console.error('❌ Error loading Drive files:', err)
@@ -581,8 +670,8 @@ function DriveBrowser({ reloadKey }) {
   useEffect(() => {
     // Try to populate from cache instantly
     const hadCache = loadFromCache()
-    // Only load from Drive if we have token and no cache
-    if (accessToken && !hadCache) {
+    // Always load from Drive when we have a token (for fresh data)
+    if (accessToken) {
       loadFiles()
     }
   }, [accessToken])
@@ -604,7 +693,20 @@ function DriveBrowser({ reloadKey }) {
   }
 
   const handleDriveAuthSuccess = (token) => {
-    loadFiles(token)
+    loadFiles(token, true) // Force refresh when auth succeeds
+  }
+
+  // Cleanup audio cache when component unmounts
+  useEffect(() => {
+    return () => {
+      clearAudioCache()
+    }
+  }, [])
+
+  const handleManualRefresh = () => {
+    if (accessToken) {
+      loadFiles(accessToken, true)
+    }
   }
 
   const formatDateTag = (dateObj) => {
@@ -701,23 +803,28 @@ function DriveBrowser({ reloadKey }) {
     })
   )].sort((a, b) => new Date(b) - new Date(a)) // Most recent first
 
-  // Filter files based on search, song, date, and type selection
+  // Filter files based on search, song, date, and type selection (multiple selections)
   const filteredFiles = files.filter(file => {
     const matchesSearch = searchQuery.trim() === '' || 
       file.name.toLowerCase().includes(searchQuery.toLowerCase())
     
-    const matchesSong = selectedSong === 'all' || 
-      extractSongName(file.name) === selectedSong
+    // Multiple song selection: if no songs selected, show all; otherwise match any selected song
+    const matchesSong = selectedSongs.length === 0 || 
+      selectedSongs.includes(extractSongName(file.name))
     
     const fileDate = new Date(file.modifiedTime).toLocaleDateString('en-US', { 
       month: 'short', 
       day: 'numeric', 
       year: 'numeric' 
     })
-    const matchesDate = selectedDate === 'all' || fileDate === selectedDate
+    // Multiple date selection: if no dates selected, show all; otherwise match any selected date
+    const matchesDate = selectedDates.length === 0 || 
+      selectedDates.includes(fileDate)
     
     const fileType = extractRecordingType(file.name)
-    const matchesType = selectedType === 'all' || fileType === selectedType
+    // Multiple type selection: if no types selected, show all; otherwise match any selected type
+    const matchesType = selectedTypes.length === 0 || 
+      selectedTypes.includes(fileType)
     
     // Check if user has favorited this file
     const matchesFavorites = !showOnlyMyFavorites || 
@@ -729,7 +836,7 @@ function DriveBrowser({ reloadKey }) {
   if (!accessToken) {
     return (
       <div className="drive-browser-empty">
-        <div className="empty-icon">☁️</div>
+        <div className="empty-icon">🎵</div>
         <p className="empty-text">Connect Google Drive to see all recordings</p>
         <DriveAuthButton onSuccess={handleDriveAuthSuccess}>
           🔗 Connect Google Drive
@@ -761,7 +868,7 @@ function DriveBrowser({ reloadKey }) {
             </DriveAuthButton>
           ) : (
             <button onClick={() => loadFiles()} className="retry-btn">
-              🔄 Try Again
+              ↻ Try Again
             </button>
           )}
         </div>
@@ -776,7 +883,7 @@ function DriveBrowser({ reloadKey }) {
         <p className="empty-text">No files in Drive yet</p>
         <p className="empty-subtext">Upload recordings to see them here</p>
         <button onClick={() => loadFiles()} className="refresh-btn">
-          🔄 Refresh
+          ↻ Refresh
         </button>
       </div>
     )
@@ -785,114 +892,182 @@ function DriveBrowser({ reloadKey }) {
   return (
     <div className="drive-browser">
       <div className="drive-browser-header">
-        <h3>☁️ Band Recordings ({filteredFiles.length}{files.length !== filteredFiles.length ? ` of ${files.length}` : ''})</h3>
+        <h3>Recordings ({filteredFiles.length}{files.length !== filteredFiles.length ? ` of ${files.length}` : ''})</h3>
         <div className="header-actions">
           <button onClick={() => setShowUpload(true)} className="upload-btn-emoji" title="Upload audio to Drive">
-            ⬆️
+            ↥
           </button>
-          <button onClick={() => loadFiles()} className="refresh-btn-emoji" title="Refresh">
-            🔄
+          <button onClick={handleManualRefresh} className="refresh-btn-emoji" title="Refresh" disabled={isLoading}>
+            {isLoading ? '⏳' : '↻'}
           </button>
         </div>
       </div>
 
       {/* Search and Filter Controls */}
       <div className="drive-controls">
-        <div className="search-box">
-          <input
-            type="text"
-            placeholder="🔍 Search recordings..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="search-input"
-          />
-          {searchQuery && (
-            <button 
-              onClick={() => setSearchQuery('')}
-              className="clear-search"
-              title="Clear search"
-            >
-              ✕
-            </button>
-          )}
+        {/* Search Bar with Filter Icon and Favorites */}
+        <div className="search-filter-row">
+          <div className="search-box">
+            <input
+              type="text"
+              placeholder="🔍 Search recordings..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="search-input"
+            />
+            {searchQuery && (
+              <button 
+                onClick={() => setSearchQuery('')}
+                className="clear-search"
+                title="Clear search"
+              >
+                ✕
+              </button>
+            )}
+          </div>
+
+          {/* Filter Icon Button */}
+          <button
+            type="button"
+            className="filter-icon-btn"
+            onClick={() => setShowFilterModal(true)}
+            title="Filters"
+          >
+            <div className="filter-lines">
+              <div className="filter-line filter-line-top"></div>
+              <div className="filter-line filter-line-middle"></div>
+              <div className="filter-line filter-line-bottom"></div>
+            </div>
+            {(selectedSongs.length > 0 || selectedDates.length > 0 || selectedTypes.length > 0) && (
+              <span className="filter-badge">
+                {selectedSongs.length + selectedDates.length + selectedTypes.length}
+              </span>
+            )}
+          </button>
+
+          {/* Favorites Button */}
+          <button
+            onClick={() => setShowOnlyMyFavorites(!showOnlyMyFavorites)}
+            className={`favorites-filter-btn ${showOnlyMyFavorites ? 'active' : ''}`}
+            title="Show only my favorites"
+          >
+            ⭐
+          </button>
         </div>
 
-        <div className="filters-row">
-          {uniqueSongNames.length > 0 && (
-            <div className="song-filter">
-              <label className="filter-label">Song:</label>
-              <div className="song-filter-buttons">
+        {/* Filter Modal */}
+        {showFilterModal && (
+          <>
+            <div className="filter-modal-overlay" onClick={() => setShowFilterModal(false)} />
+            <div className="filter-modal">
+              <div className="filter-modal-header">
+                <h3>Filters</h3>
                 <button
-                  onClick={() => setSelectedSong('all')}
-                  className={`song-filter-btn ${selectedSong === 'all' ? 'active' : ''}`}
+                  onClick={() => setShowFilterModal(false)}
+                  className="close-modal-btn"
                 >
-                  All
+                  ✕
                 </button>
-                {uniqueSongNames.map((song) => (
-                  <button
-                    key={song}
-                    onClick={() => setSelectedSong(song)}
-                    className={`song-filter-btn ${selectedSong === song ? 'active' : ''}`}
-                  >
-                    🎵 {song}
-                  </button>
-                ))}
               </div>
-            </div>
-          )}
+              <div className="filter-modal-content">
+                <div className="filters-row">
+                  {uniqueSongNames.length > 0 && (
+                    <div className="song-filter">
+                      <div className="custom-select-wrapper">
+                        <button
+                          type="button"
+                          className="song-select"
+                          onClick={() => setShowSongDropdown(!showSongDropdown)}
+                        >
+                          {selectedSongs.length === 0 
+                            ? `All Songs (${uniqueSongNames.length})` 
+                            : `${selectedSongs.length} selected`}
+                        </button>
+                        {showSongDropdown && (
+                          <>
+                            <div 
+                              className="dropdown-backdrop" 
+                              onClick={() => setShowSongDropdown(false)}
+                            />
+                            <div className="custom-select-dropdown">
+                              {uniqueSongNames.map((song) => (
+                                <label key={song} className="checkbox-option">
+                                  <input
+                                    type="checkbox"
+                                    checked={selectedSongs.includes(song)}
+                                    onChange={(e) => {
+                                      if (e.target.checked) {
+                                        setSelectedSongs([...selectedSongs, song])
+                                      } else {
+                                        setSelectedSongs(selectedSongs.filter(s => s !== song))
+                                      }
+                                    }}
+                                  />
+                                  <span className="checkbox-label">🎵 {song}</span>
+                                </label>
+                              ))}
+                              {selectedSongs.length > 0 && (
+                                <button
+                                  type="button"
+                                  className="clear-selection-btn"
+                                  onClick={() => setSelectedSongs([])}
+                                >
+                                  Clear All
+                                </button>
+                              )}
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  )}
 
-          {uniqueDates.length > 0 && (
-            <div className="date-filter">
-              <label className="filter-label">📅 Date:</label>
-              <select
-                value={selectedDate}
-                onChange={(e) => setSelectedDate(e.target.value)}
-                className="date-select"
-              >
-                <option value="all">All Dates ({uniqueDates.length})</option>
-                {uniqueDates.map((date) => (
-                  <option key={date} value={date}>
-                    {date}
-                  </option>
-                ))}
-              </select>
-            </div>
-          )}
+                  {uniqueDates.length > 0 && (
+                    <div className="date-filter">
+                      <select
+                        value={selectedDates.length === 0 ? 'all' : selectedDates[0] || 'all'}
+                        onChange={(e) => {
+                          if (e.target.value === 'all') {
+                            setSelectedDates([])
+                          } else {
+                            setSelectedDates([e.target.value])
+                          }
+                        }}
+                        className="date-select"
+                      >
+                        <option value="all">All Dates ({uniqueDates.length})</option>
+                        {uniqueDates.map((date) => (
+                          <option key={date} value={date}>
+                            {date}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
 
-              {/* Type Filter */}
-              <div className="type-filter">
-                <label className="filter-label">Type:</label>
-                <div className="type-filter-buttons">
-                  <button
-                    onClick={() => setSelectedType('all')}
-                    className={`type-filter-btn ${selectedType === 'all' ? 'active' : ''}`}
-                  >
-                    All Types
-                  </button>
-                  <button
-                    onClick={() => setSelectedType('full-band')}
-                    className={`type-filter-btn ${selectedType === 'full-band' ? 'active' : ''}`}
-                  >
-                    👥 Full Band
-                  </button>
-                  <button
-                    onClick={() => setSelectedType('solo')}
-                    className={`type-filter-btn ${selectedType === 'solo' ? 'active' : ''}`}
-                  >
-                    👤 Solo
-                  </button>
-                  
-                  {/* My Favorites Filter */}
-                  <button
-                    onClick={() => setShowOnlyMyFavorites(!showOnlyMyFavorites)}
-                    className={`type-filter-btn favorites-filter ${showOnlyMyFavorites ? 'active' : ''}`}
-                    title="Show only my favorites"
-                  >
-                    ⭐
-                  </button>
+                  {/* Type Filter */}
+                  <div className="type-filter">
+                    <select
+                      value={selectedTypes.length === 0 ? 'all' : selectedTypes[0] || 'all'}
+                      onChange={(e) => {
+                        if (e.target.value === 'all') {
+                          setSelectedTypes([])
+                        } else {
+                          setSelectedTypes([e.target.value])
+                        }
+                      }}
+                      className="type-select"
+                    >
+                      <option value="all">All Types</option>
+                      <option value="full-band">👥 Full Band</option>
+                      <option value="solo">👤 Solo</option>
+                    </select>
+                  </div>
                 </div>
               </div>
-        </div>
+            </div>
+          </>
+        )}
       </div>
 
       {filteredFiles.length === 0 && files.length > 0 ? (
@@ -921,11 +1096,51 @@ function DriveBrowser({ reloadKey }) {
               onDelete={handleDelete}
               onUpdate={handleUpdate}
               onPlayerReady={(name, controls) => {
+                // Cache the controls
+                audioControlsCache.set(file.id, controls)
                 // Set global now playing
                 setGlobalNowPlaying(name, controls)
+                
+                // Restore audio position if available
+                const cachedPosition = audioPositionCache.get(file.id)
+                if (cachedPosition && controls && controls.seekTo) {
+                  try {
+                    controls.seekTo(cachedPosition.position)
+                  } catch (error) {
+                    console.warn('Error restoring audio position:', error)
+                  }
+                }
+                
+                // Restore play state if it was playing before
+                const cachedState = audioPlayStateCache.get(file.id)
+                if (cachedState && cachedState.isPlaying && controls && controls.play) {
+                  // Small delay to ensure the player is ready
+                  setTimeout(() => {
+                    try {
+                      controls.play()
+                    } catch (error) {
+                      console.warn('Error restoring play state:', error)
+                    }
+                  }, 200)
+                }
               }}
               onPlayStateChange={(name, playing) => {
+                console.log('🎵 Play state changed:', name, playing)
                 setGlobalPlayState(playing)
+                
+                if (playing) {
+                  // Stop all OTHER audio (not this one)
+                  stopAllOtherAudio(file.id)
+                  // Set this as the current playing audio
+                  globalCurrentlyPlaying = file.id
+                  console.log('🎵 Starting audio:', file.id)
+                } else {
+                  // If this audio is paused, update global state
+                  if (globalCurrentlyPlaying === file.id) {
+                    globalCurrentlyPlaying = null
+                    console.log('✅ Audio paused, global state cleared')
+                  }
+                }
               }}
             />
           ))}

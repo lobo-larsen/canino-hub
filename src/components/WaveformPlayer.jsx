@@ -4,7 +4,7 @@ import { useAudio } from '../contexts/AudioContext'
 import './WaveformPlayer.css'
 
 function WaveformPlayer({ audioUrl, fileName, onReady, onPlayStateChange, onTime }) {
-  const { setGlobalNowPlaying, setGlobalPlayState, nowPlaying } = useAudio()
+  const { setGlobalNowPlaying, setGlobalPlayState, nowPlaying, registerAudioInstance, unregisterAudioInstance } = useAudio()
   const waveformRef = useRef(null)
   const wavesurferRef = useRef(null)
   const [isPlaying, setIsPlaying] = useState(false)
@@ -38,8 +38,11 @@ function WaveformPlayer({ audioUrl, fileName, onReady, onPlayStateChange, onTime
       barRadius: 2,
       height,
       normalize: true,
-      backend: 'WebAudio',
+      backend: 'WebAudio', // Simple, working backend
       responsive: true,
+      interact: true,
+      fillParent: true,
+      scrollParent: false,
     })
 
     wavesurferRef.current = wavesurfer
@@ -52,45 +55,55 @@ function WaveformPlayer({ audioUrl, fileName, onReady, onPlayStateChange, onTime
     wavesurfer.on('ready', () => {
       setIsLoading(false)
       setDuration(wavesurfer.getDuration())
+      
+      const controls = {
+        fileName,
+        play: () => wavesurfer.play(),
+        pause: () => wavesurfer.pause(),
+        playPause: () => wavesurfer.playPause(),
+        isPlaying: () => wavesurfer.isPlaying(),
+        getTimes: () => ({ current: wavesurfer.getCurrentTime(), total: wavesurfer.getDuration() }),
+        seekTo: (fraction) => {
+          if (typeof fraction === 'number') wavesurfer.seekTo(Math.min(1, Math.max(0, fraction)))
+        }
+      }
+      
+      // Register this audio instance
+      registerAudioInstance(fileName, controls)
+      
       if (typeof onReady === 'function') {
-        onReady({
-          fileName,
-          play: () => wavesurfer.play(),
-          pause: () => wavesurfer.pause(),
-          playPause: () => wavesurfer.playPause(),
-          isPlaying: () => wavesurfer.isPlaying(),
-          getTimes: () => ({ current: wavesurfer.getCurrentTime(), total: wavesurfer.getDuration() }),
-          seekTo: (fraction) => {
-            if (typeof fraction === 'number') wavesurfer.seekTo(Math.min(1, Math.max(0, fraction)))
-          }
-        })
+        onReady(controls)
       }
     })
 
     wavesurfer.on('play', () => {
+      console.log('🎵 WaveSurfer play event for:', fileName)
       setIsPlaying(true)
-      // Only set as global if this is the current track or no track is playing
-      if (!nowPlaying || nowPlaying.name === fileName) {
-        setGlobalNowPlaying(fileName, {
-          play: () => wavesurfer.play(),
-          pause: () => wavesurfer.pause(),
-          playPause: () => wavesurfer.playPause(),
-          isPlaying: () => wavesurfer.isPlaying(),
-          getTimes: () => ({ current: wavesurfer.getCurrentTime(), total: wavesurfer.getDuration() }),
-          seekTo: (fraction) => {
-            if (typeof fraction === 'number') wavesurfer.seekTo(Math.min(1, Math.max(0, fraction)))
-          }
-        })
-        setGlobalPlayState(true)
-      }
+      
+      // Always set this as the global playing track when it starts playing
+      setGlobalNowPlaying(fileName, {
+        play: () => wavesurfer.play(),
+        pause: () => wavesurfer.pause(),
+        playPause: () => wavesurfer.playPause(),
+        isPlaying: () => wavesurfer.isPlaying(),
+        getTimes: () => ({ current: wavesurfer.getCurrentTime(), total: wavesurfer.getDuration() }),
+        seekTo: (fraction) => {
+          if (typeof fraction === 'number') wavesurfer.seekTo(Math.min(1, Math.max(0, fraction)))
+        }
+      })
+      setGlobalPlayState(true)
+      
       if (typeof onPlayStateChange === 'function') onPlayStateChange(true)
     })
     wavesurfer.on('pause', () => {
+      console.log('⏸️ WaveSurfer pause event for:', fileName)
       setIsPlaying(false)
+      
       // Only update global state if this is the current track
       if (nowPlaying && nowPlaying.name === fileName) {
         setGlobalPlayState(false)
       }
+      
       if (typeof onPlayStateChange === 'function') onPlayStateChange(false)
     })
     
@@ -112,15 +125,19 @@ function WaveformPlayer({ audioUrl, fileName, onReady, onPlayStateChange, onTime
       if (wavesurfer) {
         wavesurfer.destroy()
       }
+      // Unregister this audio instance
+      unregisterAudioInstance(fileName)
     }
   }, [audioUrl, isSmallScreen])
 
   // Stop this player if another audio starts playing
   useEffect(() => {
-    if (nowPlaying && nowPlaying.name !== fileName && wavesurferRef.current && wavesurferRef.current.isPlaying()) {
-      console.log('🛑 Stopping', fileName, 'because', nowPlaying.name, 'is now playing')
-      wavesurferRef.current.pause()
-      setIsPlaying(false)
+    if (nowPlaying && nowPlaying.name !== fileName && wavesurferRef.current) {
+      if (wavesurferRef.current.isPlaying()) {
+        console.log('🛑 Stopping', fileName, 'because', nowPlaying.name, 'is now playing')
+        wavesurferRef.current.pause()
+        setIsPlaying(false)
+      }
     }
   }, [nowPlaying, fileName])
 
@@ -131,14 +148,27 @@ function WaveformPlayer({ audioUrl, fileName, onReady, onPlayStateChange, onTime
       if (wavesurferRef.current) {
         const isActuallyPlaying = wavesurferRef.current.isPlaying()
         if (isActuallyPlaying !== isPlaying) {
+          console.log('🔄 Syncing state for', fileName, 'isPlaying:', isActuallyPlaying)
           setIsPlaying(isActuallyPlaying)
         }
       }
     } else if (isPlaying) {
       // This track is not the current one, make sure it's paused
+      console.log('🛑 Pausing', fileName, 'because it\'s not the current track')
       setIsPlaying(false)
     }
   }, [nowPlaying, fileName, isPlaying])
+
+  // Force sync when global play state changes
+  useEffect(() => {
+    if (nowPlaying && nowPlaying.name === fileName && wavesurferRef.current) {
+      const isActuallyPlaying = wavesurferRef.current.isPlaying()
+      if (isActuallyPlaying !== isPlaying) {
+        console.log('🔄 Force syncing state for', fileName, 'isPlaying:', isActuallyPlaying)
+        setIsPlaying(isActuallyPlaying)
+      }
+    }
+  }, [nowPlaying, isPlaying, fileName])
 
   const handlePlayPause = () => {
     if (wavesurferRef.current) {
@@ -153,8 +183,10 @@ function WaveformPlayer({ audioUrl, fileName, onReady, onPlayStateChange, onTime
     return `${mins}:${secs.toString().padStart(2, '0')}`
   }
 
+  const isCurrentlyPlaying = nowPlaying && nowPlaying.name === fileName && isPlaying
+
   return (
-    <div className="waveform-player">
+    <div className={`waveform-player ${isCurrentlyPlaying ? 'currently-playing' : ''}`}>
       {isLoading && (
         <div className="waveform-loading">
           <div className="loading-spinner">⏳</div>
@@ -171,7 +203,7 @@ function WaveformPlayer({ audioUrl, fileName, onReady, onPlayStateChange, onTime
         <div className="waveform-controls">
           <button 
             onClick={handlePlayPause}
-            className="play-pause-btn"
+            className={`play-pause-btn ${isCurrentlyPlaying ? 'active' : ''}`}
             title={isPlaying ? 'Pause' : 'Play'}
           >
             {isPlaying ? '⏸' : '▶'}
@@ -182,6 +214,12 @@ function WaveformPlayer({ audioUrl, fileName, onReady, onPlayStateChange, onTime
             <span className="separator">/</span>
             <span className="total-time">{formatTime(duration)}</span>
           </div>
+          
+          {isCurrentlyPlaying && (
+            <div className="now-playing-indicator">
+              🎵
+            </div>
+          )}
         </div>
       )}
     </div>

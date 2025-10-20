@@ -1,145 +1,161 @@
-.bottom-nav {
+/* MODERN FAB BOTTOM NAVIGATION - MOBILE FIRST */
+.bottom-nav-fab {
   position: fixed;
   bottom: 0;
   left: 0;
   right: 0;
+  background: var(--surface-elevated);
+  border-top: 1px solid var(--border);
   display: flex;
-  justify-content: space-around;
   align-items: center;
-  background: rgba(30, 30, 30, 0.85);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  border-top: 1px solid rgba(0, 240, 255, 0.2);
-  padding: 0.75rem 1rem calc(0.75rem + env(safe-area-inset-bottom));
+  padding: var(--space-3) var(--space-4);
   z-index: 1000;
-  box-shadow: 
-    0 -4px 20px rgba(0, 0, 0, 0.3),
-    0 -1px 0 rgba(0, 240, 255, 0.1),
-    inset 0 1px 0 rgba(255, 255, 255, 0.1);
-  margin: 0 0.5rem 0.5rem 0.5rem;
-  border-radius: 20px 20px 0 0;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  height: 80px; /* Fixed height for FAB design */
+}
+
+/* Left and right sections for centering */
+.bottom-nav-fab > .nav-item:first-child {
+  flex: 1;
+  display: flex;
+  justify-content: center;
+}
+
+.bottom-nav-fab > .nav-item:last-child {
+  flex: 1;
+  display: flex;
+  justify-content: center;
 }
 
 .nav-item {
-  flex: 1;
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
-  gap: 0.375rem;
-  padding: 0.75rem 0.5rem;
-  background: none;
+  gap: var(--space-1);
+  padding: var(--space-2);
+  background: transparent;
   border: none;
-  cursor: pointer;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   color: var(--text-secondary);
+  cursor: pointer;
+  transition: all var(--transition);
+  border-radius: var(--radius);
+  min-width: 60px;
   position: relative;
-  border-radius: 16px;
-  min-height: 60px;
 }
 
 .nav-item:hover {
-  background: rgba(0, 240, 255, 0.05);
-  transform: translateY(-2px);
-}
-
-.nav-item:active {
-  transform: scale(0.95) translateY(-1px);
+  color: var(--text-primary);
+  background: var(--primary-light);
+  transform: translateY(-1px);
 }
 
 .nav-item.active {
-  color: var(--primary-color);
-  background: linear-gradient(135deg, rgba(0, 240, 255, 0.15) 0%, rgba(0, 184, 204, 0.1) 100%);
-  box-shadow: 
-    0 4px 12px rgba(0, 240, 255, 0.2),
-    inset 0 1px 0 rgba(255, 255, 255, 0.1);
-  transform: translateY(-3px);
-}
-
-.nav-item.active::before {
-  content: '';
-  position: absolute;
-  top: -8px;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 32px;
-  height: 3px;
-  background: linear-gradient(135deg, #00F0FF 0%, #00B8CC 100%);
-  border-radius: 2px;
-  box-shadow: 0 0 8px rgba(0, 240, 255, 0.6);
-  animation: active-glow 2s ease-in-out infinite;
-}
-
-@keyframes active-glow {
-  0%, 100% {
-    box-shadow: 0 0 8px rgba(0, 240, 255, 0.6);
-  }
-  50% {
-    box-shadow: 0 0 12px rgba(0, 240, 255, 0.8);
-  }
+  color: var(--primary);
+  background: var(--primary-light);
+  transform: translateY(-1px);
 }
 
 .nav-icon {
-  font-size: 1.5rem;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3));
-}
-
-.nav-item:hover .nav-icon {
-  transform: scale(1.05);
-  filter: drop-shadow(0 4px 8px rgba(0, 240, 255, 0.3));
-}
-
-.nav-item.active .nav-icon {
-  transform: scale(1.15);
-  filter: drop-shadow(0 4px 12px rgba(0, 240, 255, 0.6));
-  animation: icon-pulse 2s ease-in-out infinite;
-}
-
-@keyframes icon-pulse {
-  0%, 100% {
-    transform: scale(1.15);
-  }
-  50% {
-    transform: scale(1.2);
-  }
+  font-size: 1.125rem;
+  transition: all 0.2s ease;
+  font-weight: 300;
 }
 
 .nav-label {
-  font-size: 0.6875rem;
-  font-weight: 700;
+  font-size: 0.6875rem; /* 11px - smaller for FAB design */
+  font-weight: 500;
   text-transform: uppercase;
-  letter-spacing: 0.5px;
-  transition: all 0.3s ease;
+  letter-spacing: 0.2px;
+  transition: all 0.2s ease;
   opacity: 0.8;
 }
 
 .nav-item.active .nav-label {
   opacity: 1;
-  font-weight: 800;
-  text-shadow: 0 0 8px rgba(0, 240, 255, 0.4);
+  font-weight: 600;
+}
+
+/* FLOATING ACTION BUTTON */
+.fab-record {
+  position: absolute;
+  top: -20px; /* Elevate above the nav bar */
+  left: 50%;
+  transform: translateX(-50%);
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: var(--primary);
+  color: var(--text-inverse);
+  border: none;
+  cursor: pointer;
+  transition: all var(--transition);
+  box-shadow: 
+    0 4px 12px rgba(205, 127, 50, 0.3),
+    0 2px 6px rgba(0, 0, 0, 0.2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1001;
+}
+
+.fab-record:hover {
+  transform: translateX(-50%) translateY(-2px);
+  box-shadow: 
+    0 6px 16px rgba(205, 127, 50, 0.4),
+    0 4px 8px rgba(0, 0, 0, 0.3);
+}
+
+.fab-record.active {
+  background: var(--primary-hover);
+  box-shadow: 
+    0 6px 20px rgba(205, 127, 50, 0.5),
+    0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.fab-icon {
+  font-size: 1.5rem;
+  font-weight: 300;
+  transition: all 0.2s ease;
+}
+
+.fab-record:hover .fab-icon {
+  transform: scale(1.1);
+}
+
+.fab-record.active .fab-icon {
+  transform: scale(1.05);
 }
 
 /* Compensate for bottom nav in main content */
 .dashboard {
-  padding-bottom: calc(80px + env(safe-area-inset-bottom));
+  padding-bottom: calc(100px + env(safe-area-inset-bottom));
 }
 
 /* Mobile optimizations */
 @media (max-width: 640px) {
-  .bottom-nav {
-    padding: 0.5rem 0.75rem calc(0.5rem + env(safe-area-inset-bottom));
-    margin: 0 0.25rem 0.25rem 0.25rem;
-    border-radius: 16px 16px 0 0;
+  .bottom-nav-fab {
+    height: 70px;
+    padding: var(--space-2) var(--space-3);
+  }
+  
+  .fab-record {
+    width: 56px;
+    height: 56px;
+    top: -16px;
+  }
+  
+  .fab-icon {
+    font-size: 1.25rem;
   }
   
   .nav-item {
-    min-height: 56px;
-    padding: 0.625rem 0.375rem;
+    min-width: 50px;
+    padding: var(--space-1);
   }
   
   .nav-icon {
-    font-size: 1.375rem;
+    font-size: 1rem;
   }
   
   .nav-label {
@@ -149,23 +165,31 @@
 
 /* Extra small screens */
 @media (max-width: 480px) {
-  .bottom-nav {
-    margin: 0 0.125rem 0.125rem 0.125rem;
-    border-radius: 12px 12px 0 0;
+  .bottom-nav-fab {
+    height: 65px;
+    padding: var(--space-2);
+  }
+  
+  .fab-record {
+    width: 52px;
+    height: 52px;
+    top: -14px;
+  }
+  
+  .fab-icon {
+    font-size: 1.125rem;
   }
   
   .nav-item {
-    min-height: 52px;
-    padding: 0.5rem 0.25rem;
+    min-width: 45px;
     gap: 0.25rem;
   }
   
   .nav-icon {
-    font-size: 1.25rem;
+    font-size: 0.875rem;
   }
   
   .nav-label {
     font-size: 0.5625rem;
   }
 }
-

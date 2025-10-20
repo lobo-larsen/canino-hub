@@ -1,3 +1,5 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+
 * {
   margin: 0;
   padding: 0;
@@ -5,53 +7,90 @@
 }
 
 :root {
-  /* Night Sky - Fondo principal */
+  /* ULTRA MODERN CLEAN DESIGN SYSTEM */
+  
+  /* Base Colors - Dark Mode */
   --background: #121212;
-  
-  /* Graphite Gray - Cards / paneles */
   --surface: #1E1E1E;
+  --surface-elevated: #2C2C2C;
   
-  /* Steel Blue - Bordes, iconos secundarios */
-  --border-color: #4A90E2;
+  /* Typography - Dark Mode */
+  --text-primary: #FFFFFF;
+  --text-secondary: #B0B0B0;
+  --text-tertiary: #808080;
+  --text-inverse: #000000;
   
-  /* Electric Cyan - Acentos, botones, highlights */
-  --primary-color: #00F0FF;
-  --primary-dark: #00B8CC;
+  /* Accent - Bronze/Copper Theme (más apagado) */
+  --primary: #CD7F32; /* Bronze */
+  --primary-hover: #B8860B; /* DarkGoldenRod */
+  --primary-light: rgba(205, 127, 50, 0.1); /* Bronze transparent */
   
-  /* Magenta Shock - Alertas, grabar, estados activos */
-  --secondary-color: #FF00B3;
-  --accent-magenta: #FF00B3;
+  /* Semantic Colors */
+  --success: #10B981;
+  --warning: #F59E0B;
+  --error: #EF4444;
+  --info: #3B82F6;
   
-  /* Off-White - Tipografía principal */
-  --text-primary: #E5E5E5;
-  --text-secondary: #8A8A8A;
+  /* Borders & Dividers - Dark Mode */
+  --border: #3A3A3A;
+  --border-light: #2C2C2C;
+  --border-focus: #CD7F32; /* Bronze */
   
-  /* Labels - Song badges */
-  --label-gradient-start: #00F0FF;
-  --label-gradient-end: #00B8CC;
-  --label-text: #000000;
+  /* Shadows - Dark Mode (Tenues para jerarquía limpia) */
+  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.2);
+  --shadow: 0 2px 4px 0 rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 4px 8px 0 rgba(0, 0, 0, 0.4);
+  --shadow-lg: 0 8px 16px 0 rgba(0, 0, 0, 0.5);
+  --shadow-xl: 0 12px 24px 0 rgba(0, 0, 0, 0.6);
   
-  /* Waveforms - Audio visualization */
-  --waveform-unplayed: #4A90E2;
-  --waveform-played: #FF00B3;
+  /* Spacing System (8px Grid) */
+  --space-1: 0.25rem;  /* 4px */
+  --space-2: 0.5rem;   /* 8px */
+  --space-3: 0.75rem;   /* 12px */
+  --space-4: 1rem;      /* 16px */
+  --space-5: 1.25rem;   /* 20px */
+  --space-6: 1.5rem;    /* 24px */
+  --space-8: 2rem;      /* 32px */
+  --space-10: 2.5rem;   /* 40px */
+  --space-12: 3rem;     /* 48px */
+  --space-16: 4rem;     /* 64px */
+  --space-20: 5rem;     /* 80px */
   
-  /* Shadows adapted for dark theme */
-  --shadow: 0 2px 8px 0 rgba(0, 0, 0, 0.6), 0 1px 4px 1px rgba(0, 0, 0, 0.4);
-  --shadow-lg: 0 4px 16px 0 rgba(0, 0, 0, 0.7), 0 8px 24px 4px rgba(0, 0, 0, 0.5);
+  /* Border Radius */
+  --radius-sm: 0.25rem;   /* 4px */
+  --radius: 0.5rem;       /* 8px */
+  --radius-md: 0.75rem;   /* 12px */
+  --radius-lg: 1rem;      /* 16px */
+  --radius-xl: 1.5rem;    /* 24px */
+  --radius-full: 9999px;
   
-  /* Glow effects for cyberpunk vibe */
-  --cyan-glow: 0 0 10px rgba(0, 240, 255, 0.5);
-  --magenta-glow: 0 0 10px rgba(255, 0, 179, 0.5);
+  /* Transitions */
+  --transition-fast: 0.15s ease;
+  --transition: 0.2s ease;
+  --transition-slow: 0.3s ease;
+  
+  /* Bronze Glow Effects (más apagado) */
+  --bronze-glow: 0 0 10px rgba(205, 127, 50, 0.4);
+  --bronze-glow-strong: 0 0 20px rgba(205, 127, 50, 0.6);
+  
+  /* Legacy Variables - Mapped to new system */
+  --primary-color: var(--primary);
+  --border-color: var(--border);
+  --text-primary: var(--text-primary);
+  --text-secondary: var(--text-secondary);
+  --shadow: var(--shadow);
 }
 
 body {
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
     'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
     sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  background-color: var(--background);
+  background: var(--background);
   color: var(--text-primary);
+  font-size: 16px;
+  font-weight: 400;
   line-height: 1.6;
 }
 
@@ -110,5 +149,68 @@ input {
 
 ::-webkit-scrollbar-thumb:hover {
   background: var(--text-secondary);
+}
+
+/* ULTRA MODERN TYPOGRAPHY SYSTEM */
+.text-xs { font-size: 0.75rem; line-height: 1rem; }
+.text-sm { font-size: 0.875rem; line-height: 1.25rem; }
+.text-base { font-size: 1rem; line-height: 1.5rem; }
+.text-lg { font-size: 1.125rem; line-height: 1.75rem; }
+.text-xl { font-size: 1.25rem; line-height: 1.75rem; }
+.text-2xl { font-size: 1.5rem; line-height: 2rem; }
+.text-3xl { font-size: 1.875rem; line-height: 2.25rem; }
+.text-4xl { font-size: 2.25rem; line-height: 2.5rem; }
+
+.font-normal { font-weight: 400; }
+.font-medium { font-weight: 500; }
+.font-semibold { font-weight: 600; }
+.font-bold { font-weight: 700; }
+.font-extrabold { font-weight: 800; }
+
+.text-primary { color: var(--text-primary); }
+.text-secondary { color: var(--text-secondary); }
+.text-tertiary { color: var(--text-tertiary); }
+.text-inverse { color: var(--text-inverse); }
+
+/* MODERN COMPONENT STYLES */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-2) var(--space-4);
+  border-radius: var(--radius);
+  font-weight: 500;
+  transition: all var(--transition);
+  cursor: pointer;
+  border: none;
+  outline: none;
+}
+
+.btn-primary {
+  background: var(--primary);
+  color: var(--text-inverse);
+}
+
+.btn-primary:hover {
+  background: var(--primary-hover);
+  transform: translateY(-1px);
+  box-shadow: var(--bronze-glow);
+}
+
+.card {
+  background: var(--surface);
+  border-radius: var(--radius-md);
+  padding: var(--space-4);
+  box-shadow: var(--shadow);
+}
+
+.card-elevated {
+  background: var(--surface-elevated);
+  box-shadow: var(--shadow-md);
+}
+
+.card-elevated:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-lg);
 }
 
