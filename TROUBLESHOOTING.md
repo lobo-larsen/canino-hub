@@ -196,3 +196,4 @@ Antes de pedir ayuda, verifica:
 
 **¿Sigue sin funcionar?** Comparte el error completo de la consola y te ayudamos. 🤝
 
+

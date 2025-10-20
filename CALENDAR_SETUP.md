@@ -118,3 +118,4 @@ Si creas, modificas o eliminas un evento en Google Calendar:
 
 **¿Necesitas cambiar el calendario?** Edita el archivo `src/utils/bandCalendarConfig.js` y cambia la constante `BAND_CALENDAR_ID`.
 
+
